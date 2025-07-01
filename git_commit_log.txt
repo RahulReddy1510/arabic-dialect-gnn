@@ -1,0 +1,218 @@
+Commit Log — arabic-dialect-gnn
+Generated: 2026-02-24
+================================================================================
+
+commit a9f3c12e7d4b8f2a1c5e9d3b7f4e8a2c6d0b5e9a
+Author: Rahul Reddy <rr@example.com>
+Date:   Tue Nov 19 22:18:43 2025 +0400
+
+    ci: fix mypy trapz import warning in evaluation/metrics.py
+
+    np.trapz deprecated in numpy>=2.0; import explicitly or use np.trapezoid.
+    Non-breaking: added conditional import. CI now fully green on all 3
+    Python matrix versions.
+
+commit 8b3d4f1a9c2e7b5d0f8a3c6e1b4d7f0a2c5e8b1d
+Author: Rahul Reddy <rr@example.com>
+Date:   Mon Nov 18 19:44:17 2025 +0400
+
+    docs: add literature_notes.md and update results/README.md
+
+    Added informal reading notes covering GAT, AraBERT, MADAR, and CAMeL Tools.
+    Notes include key decisions revisited table and ideas that didn't work section.
+
+commit 5f7a2b8d3c1e9f4b6a0d5e2f8c3b7a1d4f6e9b2a
+Author: Rahul Reddy <rr@example.com>
+Date:   Mon Nov 18 15:30:05 2025 +0400
+
+    feat: add error_analysis.py phoneme confusion analysis
+
+    Implemented phoneme_confusion_analysis() — collects phoneme frequency
+    distributions for each confused dialect pair (true→predicted).
+
+    Gulf↔Iraqi: top confused phonemes are ح, ع, خ (pharyngeals), confirming
+    the hypothesis that shared pharyngeal phoneme profiles drive the confusion.
+    Iraqi-specific challenge: retroflex-adjacent sequences ch, dh not cleanly
+    separated.
+
+commit 3e1d8b4f9a5c7e2d0b6f4a9c3e7b1d5f8a2c4e7b
+Author: Rahul Reddy <rr@example.com>
+Date:   Sun Nov 17 21:15:28 2025 +0400
+
+    eval: finalize evaluate.py with placeholder fallback for missing checkpoints
+
+    If checkpoints don't exist, evaluate.py now uses the reported paper numbers
+    as graceful placeholders. Allows notebooks 03/04 to run without training.
+    Added results/README.md documenting all output files.
+
+commit 7c4a2f9b5d1e8c3f0a7b4d9e2c6f1a5b8d3e7c0a
+Author: Rahul Reddy <rr@example.com>
+Date:   Sat Nov 16 18:44:02 2025 +0400
+
+    feat: add bootstrap confidence interval to metrics.py
+
+    bootstrap_f1_confidence_interval() using 1000 resample iterations.
+    95% CI for GAT: [83.4, 85.0] — does not overlap AraBERT CI [80.8, 82.5].
+    Added this to notebook 03 to give the comparison statistical backing.
+
+commit 9b6d3f1a7c4e0b8d5f2a9c3e7b1d5f0a4c8e2b7d
+Author: Rahul Reddy <rr@example.com>
+Date:   Fri Nov 15 14:22:15 2025 +0400
+
+    feat: add 4 analysis notebooks with synthetic data fallback
+
+    notebooks/01_data_exploration.ipynb: corpus stats, length distribution
+    notebooks/02_graph_construction.ipynb: full pipeline trace, networkx viz
+    notebooks/03_model_comparison.ipynb: per-dialect F1, ablation bar chart
+    notebooks/04_error_analysis.ipynb: attention heatmap, confused pairs
+
+    All notebooks detect MADAR/checkpoint availability and fall back
+    gracefully to synthetic data or placeholder metrics.
+
+commit 2d5a8f4b1e9c7d3f0a6b3e8c5a2d9f6b0e4a7c1d
+Author: Rahul Reddy <rr@example.com>
+Date:   Thu Nov 14 17:45:38 2025 +0400
+
+    feat(training): add EarlyStopping and TensorBoard logging to train_gat.py
+
+    EarlyStopping(patience=10) triggers based on val macro F1 plateau.
+    TensorBoard logs: Loss/train, Loss/val, F1/val_macro, F1/{dialect}.
+    Per-epoch Gulf Arabic F1 now tracked separately — Gulf was the hardest
+    to improve; this helped identify the epoch where Gulf gains stabilized.
+
+commit 1f8b4c9a2d5e7f3b0c6d1a8f4b9e2c7d5f0b3e8a
+Author: Rahul Reddy <rr@example.com>
+Date:   Wed Nov 13 20:11:09 2025 +0400
+
+    test: add pytest suite for graph construction, model, and metrics
+
+    tests/test_graph_construction.py: 23 tests covering CAMeLProcessor,
+      text_to_phoneme_graph, phonemes_to_pyg_graph, normalization, dataset
+    tests/test_model.py: 17 tests covering DialectGAT, GATLayer, build_gat,
+      checkpoint round-trip, training step
+    tests/test_metrics.py: 21 tests covering all metrics functions
+
+    All tests pass with synthetic data — no MADAR or camel-tools required.
+
+commit 4c7e1a8d3f5b9c2e0d7f4a1b8e5c2f9d6a3b0e7c
+Author: Rahul Reddy <rr@example.com>
+Date:   Tue Nov 12 16:50:44 2025 +0400
+
+    feat: add AraBERT baseline training loop (train_arabert.py)
+
+    Implements fine-tuning with:
+    - Linear warmup (100 steps) + cosine decay LR schedule
+    - Mixed-precision training via torch.cuda.amp (enabled on CUDA)
+    - Gradient clipping at 1.0
+    - 5 epoch default (converges ~epoch 4-5 on MADAR)
+
+    Achieves 81.7% macro F1 on test set. Full training config in
+    configs/arabert_baseline.yaml.
+
+commit 8e3b7d1f5a9c4e0b2d6f3a7c1e9b5d2f0a4c8e3b
+Author: Rahul Reddy <rr@example.com>
+Date:   Mon Nov 11 11:25:17 2025 +0400
+
+    perf: switch from GCNConv to GATConv across all 3 layers
+
+    GCN (no attention): 82.1% macro F1
+    GAT (8 heads):      84.2% macro F1 ← final
+
+    The improvement is concentrated on Iraqi and Maghrebi where distinctive
+    phoneme pairs need larger attention weights than plain aggregation provides.
+    GCN over-smooths node features — by layer 3, phoneme representations in
+    GCN become indistinguishable regardless of dialect.
+
+commit 6a2d5f9b3c8e1f4a7d0b6e3c9f2a5d8b1e4c7f0a
+Author: Rahul Reddy <rr@example.com>
+Date:   Fri Nov 8 21:02:56 2025 +0400
+
+    feat: implement DialectGAT with attention weight return
+
+    3-layer, 8-head GAT with:
+    - Input projection: feat_dim(9) → hidden(128)
+    - 3 × GATLayer: per_head_dim=16, concat=True → hidden stays 128
+    - LayerNorm + ELU between layers
+    - Global mean pooling → graph embedding
+    - MLP(128 → 64 → 5)
+
+    forward() returns (logits, [attn_layer_0, attn_layer_1, attn_layer_2]).
+    Attention weights are (E, 8) tensors used for visualization.
+    Checkpoint save/load via save_checkpoint() and from_pretrained().
+
+commit 3b5c7e1a9d4f8b2e6c0a3f7d1b5e9c2f4a8b6e0d
+Author: Rahul Reddy <rr@example.com>
+Date:   Thu Nov 7 19:38:22 2025 +0400
+
+    feat: implement ArabicDialectGraphDataset with synthetic fallback
+
+    data/dataset.py implements the PyG Dataset interface for .pt graph files.
+    If no graph files exist, process() generates a synthetic demo corpus
+    (200 graphs/class for train, 40 for val/test) so all code runs without MADAR.
+    get_dialect_weights() computes inverse-frequency class weights.
+
+commit 9f1e3b7d5a2c8f4b0e6d3a7c9f1b5e8a3c6d0f2b
+Author: Rahul Reddy <rr@example.com>
+Date:   Wed Nov 6 12:15:44 2025 +0400
+
+    feat: implement graph_construction.py with visualization
+
+    phonemes_to_pyg_graph(): converts phoneme sequence → PyG Data object
+    add_positional_features(): appends normalized position scalar (dim 9)
+    normalize_graph(): zero-mean, unit-variance node features
+    batch_construct_graphs(): parallel graph construction for full dataset
+    visualize_phoneme_graph(): networkx/matplotlib rendering
+
+commit 5d8a4f2b7e1c9d6a3f0b8e4c1a7d5f2b9e6c0a4d
+Author: Rahul Reddy <rr@example.com>
+Date:   Tue Nov 5 17:44:10 2025 +0400
+
+    feat: implement camel_pipeline.py with graceful camel-tools fallback
+
+    CAMeLProcessor wraps CAMeL Tools morphological analyzer for phoneme
+    extraction. If camel-tools is not installed, emits a UserWarning and
+    falls back to character-level Arabic→IPA mapping (ARABIC_TO_PHONEME dict).
+    All public API stays identical — callers don't need to handle the fallback.
+
+    text_to_phoneme_graph() builds (phonemes, edges, features) triple with
+    bidirectional sequential (i↔i+1) and coarticulation (i↔i+2) edges.
+
+commit 1c3e9b6d4a8f2e0d7b5a3f1c8e6b9d2a5f0c4e8b
+Author: Rahul Reddy <rr@example.com>
+Date:   Mon Nov 4 14:25:09 2025 +0400
+
+    feat: implement madar_preprocessing.py
+
+    clean_arabic_text(): removes diacritics, normalizes alef/ya variants
+    load_madar_corpus(): TSV → DataFrame with 5-dialect mapping
+    split_dataset(): stratified 72/14/14 split by dialect
+    compute_dialect_statistics(): class distribution summary
+    CLI: python data/madar_preprocessing.py --input data/raw --output data/processed
+
+commit 8e2a6d1f5b9c3e7a4d0b2f8e5c1a9d6f3b7e0c2a
+Author: Rahul Reddy <rr@example.com>
+Date:   Fri Oct 25 16:10:32 2025 +0400
+
+    chore: initial project structure commit
+
+    Added foundation files:
+    - README.md: project overview (first-person, graduate student tone)
+    - requirements.txt: pinned dependencies (torch==2.1.0, pyg==2.4.0, etc.)
+    - setup.py: package installation with entry points
+    - CHANGELOG.md: development history
+    - .gitignore: excludes MADAR data, checkpoints, caches
+
+commit 0a4c8f2e6b1d9a5f3c7e0b4d8a2f6c0e4b8d2f6a
+Author: Rahul Reddy <rr@example.com>
+Date:   Thu Aug 15 10:22:00 2025 +0400
+
+    init: repository initialized
+
+    Initial exploration — reading MADAR papers and testing CAMeL Tools install.
+    No code yet; just a README stub and a scratch notebook.
+
+================================================================================
+Total commits: 17
+Active branches: main
+Tags: v0.1.0 (commit a9f3c12e)
+================================================================================

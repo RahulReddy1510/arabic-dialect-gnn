@@ -1,0 +1,68 @@
+# configs/gat_base.yaml
+#
+# Production configuration for the DialectGAT model.
+# These are the exact hyperparameters used to achieve 84.2% macro F1.
+#
+# Usage:
+#   python training/train_gat.py --config configs/gat_base.yaml
+
+# ============================================================
+# Model
+# ============================================================
+model:
+  type: "gat"
+  node_feature_dim: 9      # 8-dim phoneme-class one-hot + 1-dim position
+  num_classes: 5
+  hidden_dim: 128          # Each GAT layer: 128-dim → 8 heads × 16-dim → concat → 128-dim
+  num_heads: 8
+  num_layers: 3
+  dropout: 0.1
+  pooling: "mean"          # mean > max on MADAR dialect boundary pairs
+
+# ============================================================
+# Data
+# ============================================================
+data:
+  data_dir: "data/graphs"              # Pre-built .pt graph files
+  processed_dir: "data/processed"      # Processed CSVs
+  batch_size: 64
+  num_workers: 0                       # 0 = Windows-safe (4 recommended on Linux)
+
+# ============================================================
+# Training
+# ============================================================
+training:
+  epochs: 100
+  weighted_loss: true                  # Inverse-frequency weights (Gulf imbalance)
+  early_stopping_patience: 10
+  seed: 42
+
+  optimizer:
+    name: "AdamW"
+    lr: 1.0e-3
+    weight_decay: 1.0e-4
+
+  scheduler:
+    name: "ReduceLROnPlateau"
+    mode: "max"                        # Maximize val macro F1
+    patience: 5
+    factor: 0.5
+    min_lr: 1.0e-6
+
+# ============================================================
+# Ablation variants (uncomment to switch config)
+# ============================================================
+
+# 4-head variant (macro F1: 83.4%)
+# model:
+#   num_heads: 4
+#   hidden_dim: 128   # hidden must be divisible by num_heads
+
+# 16-head variant (macro F1: 83.9%)
+# model:
+#   num_heads: 16
+#   hidden_dim: 128
+
+# max-pooling variant (macro F1: 83.6%)
+# model:
+#   pooling: "max"

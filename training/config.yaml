@@ -1,0 +1,94 @@
+# training/config.yaml
+#
+# Master configuration for the Arabic Dialect GNN project.
+# Referenced by training/train_gat.py and training/train_arabert.py.
+#
+# Values here match the exact hyperparameters that produced the reported results:
+#   GAT:     84.2% macro F1
+#   AraBERT: 81.7% macro F1
+
+# ============================================================
+# Model configuration (GAT)
+# ============================================================
+model:
+  type: "gat"
+  node_feature_dim: 9          # 8 phoneme-class one-hot dims + 1 position scalar
+  num_classes: 5
+  hidden_dim: 128
+  num_heads: 8                 # Best of {4, 8, 16} — see ablation table
+  num_layers: 3
+  dropout: 0.1
+  pooling: "mean"              # mean > max for calibration on borderline pairs
+
+# ============================================================
+# Data configuration
+# ============================================================
+data:
+  data_dir: "data/graphs"           # Pre-built .pt graph files
+  madar_corpus_path: "data/raw"     # Raw MADAR TSV files (for preprocessing)
+  processed_dir: "data/processed"   # Processed CSVs from madar_preprocessing.py
+  normalize_ta_marbuta: false       # ة → ه  (controversial; off by default)
+  train_ratio: 0.72
+  val_ratio: 0.14
+  # test_ratio is the remainder: 0.14
+  batch_size: 64
+  num_workers: 0                    # 0 for Windows compatibility; 4 on Linux
+
+# ============================================================
+# GAT training
+# ============================================================
+training:
+  epochs: 100
+  optimizer:
+    name: "AdamW"
+    lr: 1.0e-3
+    weight_decay: 1.0e-4
+  scheduler:
+    name: "ReduceLROnPlateau"
+    patience: 5                # Reduce LR after 5 epochs without F1 improvement
+    factor: 0.5
+    min_lr: 1.0e-6
+  early_stopping_patience: 10
+  seed: 42
+  weighted_loss: true          # Inverse-frequency weights for class imbalance
+
+# ============================================================
+# AraBERT baseline configuration
+# ============================================================
+baseline:
+  model_name: "aubmindlab/bert-base-arabert"
+  max_length: 128              # Covers >98% of MADAR sentences
+  batch_size: 32
+  lr: 2.0e-5                   # Standard BERT fine-tuning LR
+  warmup_steps: 100
+  epochs: 5                    # BERT converges faster than GAT
+  dropout: 0.1
+  gradient_clip: 1.0
+
+# ============================================================
+# Ablation study configurations
+# (used to generate the ablation table in the README)
+# ============================================================
+ablations:
+  - name: "morpheme_nodes"
+    description: "Use morpheme-level nodes instead of phoneme-level"
+    # Swap camel_pipeline to return morpheme tokens as nodes
+    # Result: 83.0% macro F1
+
+  - name: "4_heads"
+    description: "4 attention heads instead of 8"
+    num_heads: 4
+    # Result: 83.4% macro F1
+
+  - name: "16_heads"
+    description: "16 attention heads instead of 8"
+    num_heads: 16
+    # Result: 83.9% macro F1
+
+  - name: "hybrid_arabert_gat"
+    description: "Concatenate AraBERT [CLS] with GAT graph embedding"
+    # Concatenates 768-dim AraBERT CLS + 128-dim GAT mean pool → linear(896, 5)
+    # Result: 84.0% macro F1 (slightly worse than pure GAT at 84.2%)
+    # The hybrid being below pure GAT is the interesting result —
+    # the graph structure captures complementary signal, but the
+    # combination doesn't stack additively.

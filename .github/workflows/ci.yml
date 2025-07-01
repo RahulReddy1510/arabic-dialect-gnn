@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }} Tests
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install CPU-only PyTorch (CI — no GPU needed for unit tests)
+        run: |
+          pip install --upgrade pip
+          pip install torch==2.1.0 --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install torch_geometric (CPU)
+        run: |
+          pip install torch_geometric==2.4.0
+          pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv \
+            -f https://data.pyg.org/whl/torch-2.1.0+cpu.html || true
+
+      - name: Install remaining dependencies
+        run: |
+          pip install -r requirements.txt \
+            --extra-index-url https://download.pytorch.org/whl/cpu \
+            --ignore-requires-python \
+            || pip install numpy pandas scikit-learn matplotlib pyyaml pytest
+
+      - name: Run unit tests
+        run: |
+          pytest tests/ -v --tb=short --no-header \
+            --ignore=tests/test_model.py \
+            -k "not camel_pipeline"
+        # Note: test_model.py runs separately because torch_geometric
+        # needs to be fully initialized before pyg tests are collected.
+
+      - name: Run model tests
+        run: |
+          pytest tests/test_model.py -v --tb=short --no-header
+
+  lint:
+    name: Code style (flake8)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install flake8
+        run: pip install flake8
+
+      - name: Run flake8
+        run: |
+          flake8 data/ models/ training/ evaluation/ --max-line-length=100 \
+            --ignore=E501,W503,E203 \
+            --exclude=__pycache__,*.egg-info
+
+  type-check:
+    name: Type checking (mypy)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install mypy + stubs
+        run: |
+          pip install mypy numpy pandas torch --index-url https://download.pytorch.org/whl/cpu
+          pip install types-PyYAML
+
+      - name: Run mypy (non-blocking)
+        run: |
+          mypy data/ models/ training/ evaluation/ \
+            --ignore-missing-imports \
+            --no-strict-optional \
+            --warn-return-any \
+            --allow-untyped-defs \
+            || true
+        # mypy is non-blocking (|| true) because type stubs for torch_geometric
+        # are incomplete. Local mypy runs are still useful for finding obvious bugs.
